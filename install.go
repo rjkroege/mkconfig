@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"archive/tar"
 	"compress/gzip"
-	"time"
 
 	"golang.org/x/oauth2"
 )
@@ -57,7 +56,6 @@ func InstallBinTargets(targetpath string, args []string) error {
 	if err != nil {
 		return fmt.Errorf("can't read tokens: %v", err)
 	}
-
 	
 	decoder := json.NewDecoder(bytes.NewBuffer(data))
 	sad := new(SavedAuthData)
@@ -91,29 +89,25 @@ func InstallBinTargets(targetpath string, args []string) error {
 
 	client := conf.Client(ctx, token)
 
+	if err := os.MkdirAll(targetpath, 0755); err != nil {
+		return fmt.Errorf("can't have a target path %q: %v", targetpath, err)
+	}	
+
 	for _, wantedbin := range args {
-		if filepath.Ext(wantedbin) == ".tgz" || filepath.Ext(wantedbin) == ".gz" {
-			url  := "https://" + path.Join(urlbase, "data", wantedbin)
-			resp, err := client.Get(url)
-			if err != nil {
-				return fmt.Errorf("can't GET %s: %v", url, err)
+		localpath := filepath.Join(targetpath, wantedbin)
+		if filepath.Ext(wantedbin) == ".ttf" || filepath.Ext(wantedbin) == ".otf" {
+			finalurl  := "https://" + path.Join(urlbase, "fonts", wantedbin)
+			log.Println(finalurl, " -> ", localpath)
+			if err := copyUrl(client, finalurl, localpath); err != nil {
+				return fmt.Errorf("InstallBinTargets can't GET %s to %s: %v", finalurl, localpath, err)
 			}
-// hackery --
-			// log.Println(resp.Header)
-			log.Println(resp.Header["Last-Modified"])
-
-			modtime, err := time.Parse(time.RFC1123, resp.Header["Last-Modified"][0])
-			if err != nil {
-				return fmt.Errorf("no mod time for %q: %v", wantedbin, err)
+			if err := os.Chmod(localpath, 0644); err != nil {
+				fmt.Errorf("InstallBinTargets can't set %q perms: %v", localpath, err)
 			}
-			log.Printf("%q: %v", wantedbin, modtime.Local())
-
-// ------
-			return TarXZF(targetpath, resp.Body)
+			continue
 		}
 
 		finalurl := "https://" + path.Join(urlbase, runtime.GOOS, runtime.GOARCH, wantedbin)
-		localpath := filepath.Join(targetpath, wantedbin)
 		log.Println(finalurl, " -> ", localpath)
 
 		if err := copyUrl(client, finalurl, localpath); err != nil {
@@ -135,9 +129,10 @@ func InstallBinTargets(targetpath string, args []string) error {
 	if err != nil {
 		return fmt.Errorf("can't get updated token to save: %v", err)
 	}
-
 	sad.SavedToken = *newtoken
+
 	if err := SaveOauthToken(sad); err != nil {
+		// This is a non-fatal race condition?
 		return fmt.Errorf("can't get update SavedAuthData: %v", err)
 	}
 	return nil

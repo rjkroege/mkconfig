@@ -42,6 +42,25 @@ func readKeyChain(service, username, accessgroup string) ([]byte, bool, error) {
 
 // writeKeyChain writes data encrypted into KeyChain or backing file.
 func writeKeyChain(service, username, accessgroup string, data []byte) error {
+	query := keychain.NewItem()
+
+	// Generic password type. I want this kind
+	query.SetSecClass(keychain.SecClassGenericPassword)
+
+	// The service name. I'm using gcs.liqui.org. Which is sort of made-up
+	query.SetService(service)
+
+	// The name of the current user.
+	query.SetAccount(username)
+
+	// This is suppose to be the team id (from signing / notarization) with
+	// .org.liqui.mkconfig appended. I have made it up.
+	query.SetAccessGroup(accessgroup)
+
+	// We only want one result
+	query.SetMatchLimit(keychain.MatchLimitOne)
+	query.SetReturnData(true)
+
 	item := keychain.NewItem()
 
 	// Generic password type. I want this kind
@@ -61,23 +80,15 @@ func writeKeyChain(service, username, accessgroup string, data []byte) error {
 	item.SetSynchronizable(keychain.SynchronizableNo)
 	item.SetAccessible(keychain.AccessibleWhenUnlocked)
 
-	if err := keychain.AddItem(item); err == keychain.ErrorDuplicateItem {
-		// Try deleting the duplicate first.
-		ditem := keychain.NewItem()
-		ditem.SetSecClass(keychain.SecClassGenericPassword)
-		ditem.SetService(service)
-		ditem.SetAccount(username)
-		if err := keychain.DeleteItem(item); err != nil {
-			return fmt.Errorf("can't delete old password: %v", err)
-		}
-
-		if err := keychain.AddItem(item); err != nil {
+	if err := keychain.UpdateItem (query, item); err == keychain.ErrorItemNotFound {
+		// Try adding (but maybe it's already there?)
+		if err := keychain.AddItem(item); err != nil && err != keychain.ErrorDuplicateItem {
 			return fmt.Errorf("can't write keychain item: %v", err)
 		}
-
-	} else if err != nil {
-		return fmt.Errorf("can't write keychain item: %v", err)
-	}
+	} 
+	// Is this right? I have no idea. I'm skipping a lot of error cases here. But
+	// this is what the Apple docs suggest. Presumably, I'll find out if I've failed
+	// to update the stored token.
 	return nil
 }
 
