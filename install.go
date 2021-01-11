@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"bytes"
+	"archive/tar"
+	"compress/gzip"
+	"time"
 
 	"golang.org/x/oauth2"
 )
@@ -89,6 +92,26 @@ func InstallBinTargets(targetpath string, args []string) error {
 	client := conf.Client(ctx, token)
 
 	for _, wantedbin := range args {
+		if filepath.Ext(wantedbin) == ".tgz" || filepath.Ext(wantedbin) == ".gz" {
+			url  := "https://" + path.Join(urlbase, "data", wantedbin)
+			resp, err := client.Get(url)
+			if err != nil {
+				return fmt.Errorf("can't GET %s: %v", url, err)
+			}
+// hackery --
+			// log.Println(resp.Header)
+			log.Println(resp.Header["Last-Modified"])
+
+			modtime, err := time.Parse(time.RFC1123, resp.Header["Last-Modified"][0])
+			if err != nil {
+				return fmt.Errorf("no mod time for %q: %v", wantedbin, err)
+			}
+			log.Printf("%q: %v", wantedbin, modtime.Local())
+
+// ------
+			return TarXZF(targetpath, resp.Body)
+		}
+
 		finalurl := "https://" + path.Join(urlbase, runtime.GOOS, runtime.GOARCH, wantedbin)
 		localpath := filepath.Join(targetpath, wantedbin)
 		log.Println(finalurl, " -> ", localpath)
@@ -118,4 +141,53 @@ func InstallBinTargets(targetpath string, args []string) error {
 		return fmt.Errorf("can't get update SavedAuthData: %v", err)
 	}
 	return nil
+}
+
+// TarXZF natively implements 'tar xzf -` from ifd, writing the
+// files to targetpath.
+func TarXZF(targetpath string, ifd io.Reader) error {
+	if err := os.MkdirAll(targetpath, 0755); err != nil {
+		return fmt.Errorf("can't create dir %q: %v", targetpath, err)
+	}
+
+	zr, err := gzip.NewReader(ifd)
+	if err != nil {
+		return fmt.Errorf("can't create unzipper: %v", err)
+	}
+
+	tr := tar.NewReader(zr)
+	for  {
+		h, err := tr.Next()
+		if err != nil && err == io.EOF {
+			log.Println("eof?")
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("no header for tar: %v", err)
+		}
+
+		path := filepath.Join(targetpath, h.Name)
+		log.Printf("tar %q -> %q", h.Name, path)
+
+		switch h.Typeflag {
+		case tar.TypeReg:
+			dfd, err := os.Create(path)
+			if err != nil {
+				return fmt.Errorf("can't create dest path %q: %v", path, err)
+			}
+
+			if _, err := io.Copy(dfd, tr); err != nil {
+				dfd.Close()
+				return fmt.Errorf("can't write path %q: %v", path, err)
+			}
+			dfd.Close()
+			// TODO(rjk): Fix mode, timestamps, xattr as needed.
+		case tar.TypeDir:
+			if err := os.MkdirAll(path, os.FileMode(h.Mode)); err != nil {
+				return fmt.Errorf("can't make dir %q: %v", path, err)
+			}
+		default:
+			// TODO(rjk): Extend as needed to additional types.
+			log.Println("can't deal with %q, unsupported entry type", path)
+		}
+	}
 }
