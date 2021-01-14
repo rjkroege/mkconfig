@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -11,11 +10,10 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"bytes"
 	"archive/tar"
 	"compress/gzip"
 
-	"golang.org/x/oauth2"
+	oauth "golang.org/x/oauth2/google"
 )
 
 const urlbase = "storage.googleapis.com/boot-tools-liqui-org"
@@ -50,44 +48,14 @@ func copyUrl(client *http.Client, url string, ofn string) error {
 // download all of the desired targets. It looks for an appropriate GCS
 // auth token in keychain or in a local file.
 func InstallBinTargets(targetpath string, args []string) error {
-	p := MakePersister()
-
-	data, err := p.ReadTokens()
-	if err != nil {
-		return fmt.Errorf("can't read tokens: %v", err)
-	}
-	
-	decoder := json.NewDecoder(bytes.NewBuffer(data))
-	sad := new(SavedAuthData)
-	if err := decoder.Decode(sad); err != nil {
-		return fmt.Errorf("can't decode json payload into SavedAuthData: %v", err)
-	}
-	token := &sad.SavedToken
-
-	log.Println("using", *token, "will now try to download", args)
-
-	if !token.Valid() {
-		log.Println("InstallBinTargets has invalid token")
-	}
-
 	ctx := context.Background()
 
-	conf := &oauth2.Config{
-	ClientID: sad.ClientID,
-	ClientSecret: sad.ClientSecret,
-	Scopes: []string{
-		// Add more scopes here as needed.
-		"https://www.googleapis.com/auth/devstorage.read_only",
-	},
-	Endpoint: oauth2.Endpoint{
-		TokenURL: "https://oauth2.googleapis.com/token",
-		AuthURL:  "https://accounts.google.com/o/oauth2/v2/auth",
-	},
-	// don't need I think
-	RedirectURL:  "urn:ietf:wg:oauth:2.0:oob",
-	}
+	client, err := oauth.DefaultClient(ctx,
+		"https://www.googleapis.com/auth/devstorage.read_only")
 
-	client := conf.Client(ctx, token)
+	if err != nil {
+		return fmt.Errorf("no DefaultClient %v", err)
+	}
 
 	if err := os.MkdirAll(targetpath, 0755); err != nil {
 		return fmt.Errorf("can't have a target path %q: %v", targetpath, err)
@@ -119,22 +87,6 @@ func InstallBinTargets(targetpath string, args []string) error {
 		}
 	}
 
-	// get the token to save?
-	oatrans, ok := client.Transport.(*oauth2.Transport)
-	if  !ok {
-		return fmt.Errorf("can't get updated token because client.Transport is not oauth2")
-	}
-	
-	newtoken, err  := oatrans.Source.Token()
-	if err != nil {
-		return fmt.Errorf("can't get updated token to save: %v", err)
-	}
-	sad.SavedToken = *newtoken
-
-	if err := SaveOauthToken(sad); err != nil {
-		// This is a non-fatal race condition?
-		return fmt.Errorf("can't get update SavedAuthData: %v", err)
-	}
 	return nil
 }
 
