@@ -23,6 +23,7 @@ func defaultTargetPath() string {
 }
 
 var targetpath = flag.String("targetpath", defaultTargetPath(), "help message for flagname")
+var bootstrap = flag.Bool("bootstrap", false, "do GCP bootstrap")
 var verbose = flag.Bool("log", false, "print more detailed logging messages")
 var genmkvars = flag.Bool("vars", false, "print mk vars")
 var clientidfile = flag.String("clientid", "client_info.json", "the client id json file")
@@ -48,6 +49,11 @@ func main() {
 		log.Println("CheckLinuxPackagesInstalled")
 		if err := CheckLinuxPackagesInstalled(args); err != nil {
 			log.Fatalf("can't determine missing packages: %v\n", err)
+		}
+	} else if *bootstrap {
+		log.Println("BootstrapGcpNode")
+		if err := BootstrapGcpNode(); err != nil {
+			log.Fatalf("can't bootstrap node: %v\n", err)
 		}
 	} else {
 		if err := InstallBinTargets(*targetpath, args); err != nil {
