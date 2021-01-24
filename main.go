@@ -13,7 +13,7 @@ import (
 func defaultTargetPath() string {
 	s := "/usr/local/bin"
 	// TODO(rjk): Probably needs adjustment
-	if runtime.GOOS != "darwin" {
+	if runtime.GOOS != "darwin" && !isCos() {
 		h := os.ExpandEnv("$HOME")
 		if h != "" {
 			s = filepath.Join(h, "bin")
@@ -22,7 +22,8 @@ func defaultTargetPath() string {
 	return s
 }
 
-var targetpath = flag.String("targetpath", defaultTargetPath(), "help message for flagname")
+var targetpath = flag.String("targetpath", defaultTargetPath(), "install binaries here")
+var scriptspath = flag.String("scriptspath", "./tools", "pull configuration to this dir")
 var bootstrap = flag.Bool("bootstrap", false, "do GCP bootstrap")
 var verbose = flag.Bool("log", false, "print more detailed logging messages")
 var genmkvars = flag.Bool("vars", false, "print mk vars")
@@ -52,7 +53,7 @@ func main() {
 		}
 	} else if *bootstrap {
 		log.Println("BootstrapGcpNode")
-		if err := BootstrapGcpNode(); err != nil {
+		if err := BootstrapGcpNode(*targetpath, *scriptspath); err != nil {
 			log.Fatalf("can't bootstrap node: %v\n", err)
 		}
 	} else {

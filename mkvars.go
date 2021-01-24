@@ -20,8 +20,20 @@ func linuxFlavour() (string, error) {
 		return "alpine", nil
 	}
 
+	if _, err := os.Stat("/home/chronos"); err == nil {
+		// Container OS or ChromeOS
+		return "cos", nil
+	}
+
 	// TODO(rjk): gentoo, etc. Whatever I try next.
 	return "", fmt.Errorf("can't determine Linux packaging scheme")
+}
+
+func isCos() bool {
+	if le, err := linuxFlavour(); err == nil && le == "cos" {
+		return true
+	}
+	return false
 }
 
 
@@ -72,9 +84,6 @@ func printMkVars() {
 		}
 	}
 
-
-	// TODO(rjk): Add check for GCE? Or in Docker? As needed.
-	
 	fmt.Println("platformtargets", "=", strings.Join(platformtargets, "_"))
 
 	tp := defaultTargetPath()
