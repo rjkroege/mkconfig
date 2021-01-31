@@ -84,6 +84,11 @@ func printMkVars() {
 		}
 	}
 
+	// Am I running on GCP under gocloud?
+	if _, err := readStingFromMetadata("username"); err == nil {
+		platformtargets = append(platformtargets, "gcp")
+	}
+
 	fmt.Println("platformtargets", "=", strings.Join(platformtargets, "_"))
 
 	tp := defaultTargetPath()
