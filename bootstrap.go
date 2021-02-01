@@ -120,7 +120,18 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't write  %q: %v", suoderspath, err)
 	}
 	log.Println(suoderspath, "made")
-	
+
+	// fix up git credentials
+	gitcredpath := filepath.Join(userinfo.HomeDir, ".git-credentials")
+	// TODO(rjk): read this from configuration.
+	gitcredentry := fmt.Sprintf("https://%s:%s@git.liqui.org", username, gitcred)
+	if err := ioutil.WriteFile(gitcredpath, []byte(gitcredentry), 0600); err != nil {
+		return fmt.Errorf("can't write  %q: %v", gitcredpath, err)
+	}
+	if err := recursiveChown(gitcredpath, uid, gid); err != nil {
+		return fmt.Errorf("can't chown %q: %v", gitcredpath, err)
+	}
+	log.Println("recursiveChown .git-credentials")
 
 	// Exec 'mk' here (as different username)
 	// I can do this with su
