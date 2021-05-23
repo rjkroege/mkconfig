@@ -25,6 +25,7 @@ func defaultTargetPath() string {
 var targetpath = flag.String("targetpath", defaultTargetPath(), "install binaries here")
 var scriptspath = flag.String("scriptspath", "./tools", "pull configuration to this dir")
 var bootstrap = flag.Bool("bootstrap", false, "do GCP bootstrap")
+var accountsetup = flag.Bool("accountsetup", false, "do GCP account setup")
 var verbose = flag.Bool("log", false, "print more detailed logging messages")
 var genmkvars = flag.Bool("vars", false, "print mk vars")
 var clientidfile = flag.String("clientid", "client_info.json", "the client id json file")
@@ -54,6 +55,11 @@ func main() {
 	} else if *bootstrap {
 		log.Println("BootstrapGcpNode")
 		if err := BootstrapGcpNode(*targetpath, *scriptspath); err != nil {
+			log.Fatalf("can't bootstrap node: %v\n", err)
+		}
+	} else if *accountsetup {
+		log.Println("SetupGcpAccount")
+		if err := SetupGcpAccount(*targetpath, *scriptspath); err != nil {
 			log.Fatalf("can't bootstrap node: %v\n", err)
 		}
 	} else {

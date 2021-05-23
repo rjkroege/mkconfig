@@ -93,7 +93,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 
 	// Setup ssh.
 	sshdir := filepath.Join(userinfo.HomeDir, ".ssh")
-	if err := os.MkdirAll(clonepath, 0755); err != nil {
+	if err := os.MkdirAll(sshdir, 0755); err != nil {
 		return fmt.Errorf("can't make path: %q: %v", sshdir, err)
 	}
 	log.Println(".ssh made")
@@ -170,3 +170,4 @@ func recursiveChown(path string, uid, gid int) error {
 	})
 	return nil
 }
+
