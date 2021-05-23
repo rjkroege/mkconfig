@@ -63,8 +63,7 @@ func InstallBinTargets(targetpath string, args []string) error {
 
 	for _, wantedbin := range args {
 		localpath := filepath.Join(targetpath, wantedbin)
-		if filepath.Ext(wantedbin) == ".ttf" || filepath.Ext(wantedbin) == ".otf" {
-			finalurl  := "https://" + path.Join(urlbase, "fonts", wantedbin)
+		if finalurl, plainfile := isDataFile(urlbase, wantedbin); plainfile {
 			log.Println(finalurl, " -> ", localpath)
 			if err := copyUrl(client, finalurl, localpath); err != nil {
 				return fmt.Errorf("InstallBinTargets can't GET %s to %s: %v", finalurl, localpath, err)
@@ -88,6 +87,17 @@ func InstallBinTargets(targetpath string, args []string) error {
 	}
 
 	return nil
+}
+
+func isDataFile(urlbase, wantedbin string) (string, bool) {
+	switch filepath.Ext(wantedbin) {
+	case ".ttf", "otf":
+		return "https://" + path.Join(urlbase, "fonts", wantedbin), true
+	case ".1":
+		return "https://" + path.Join(urlbase, "mans", wantedbin), true
+	default:
+		return "", false
+	}
 }
 
 // TarXZF natively implements 'tar xzf -` from ifd, writing the
