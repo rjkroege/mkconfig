@@ -113,6 +113,28 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	}
 	log.Println("recursiveChown .ssh")
 
+	// Setup rclone configuration.
+	rclonepath := filepath.Join(userinfo.HomeDir, ".config", "rclone")
+	if err := os.MkdirAll(rclonepath, 0755); err != nil {
+		return fmt.Errorf("can't make path: %q: %v", rclonepath, err)
+	}
+	log.Printf("%q made", rclonepath)
+
+	rcloneval, err := readStingFromMetadata("rcloneconfig")
+	if err != nil {
+		return fmt.Errorf("can't get rcloneconfig %v", err)
+	}
+	rclonefilepath := filepath.Join(rclonepath, "rclone.conf")
+	if err := ioutil.WriteFile(rclonefilepath, []byte(rcloneval), 0600); err != nil {
+		return fmt.Errorf("can't write  %q: %v", rclonefilepath, err)
+	}
+	log.Printf("%q made", rclonefilepath)
+
+	if err := recursiveChown(filepath.Join(userinfo.HomeDir, ".config"), uid, gid); err != nil {
+		return fmt.Errorf("can't chown .config: %v", err)
+	}
+	log.Println("recursiveChown .config")
+
 	// fix up suoders
 	sudoersentry := fmt.Sprintf("%s ALL=(ALL) NOPASSWD: ALL\n", username)
 	suoderspath := filepath.Join("/etc/sudoers.d", username)
