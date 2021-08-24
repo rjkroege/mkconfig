@@ -81,6 +81,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
    		     Username: "abc123", // anything except an empty string
   		      Password: gitcred,
    		 },
+		Depth: 4,
 	})
 	if err != nil {
 		return fmt.Errorf("can't checkout clonepath path %q: %v", clonepath, err)
