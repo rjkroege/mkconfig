@@ -1,15 +1,15 @@
 package main
 
 import (
-	"path/filepath"
 	"os"
-//	"path"
-	"os/user"
+	"path/filepath"
+	//	"path"
 	"fmt"
-	"strconv"
-	"net/http"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"os/user"
+	"strconv"
 
 	git "gopkg.in/src-d/go-git.v4"
 	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
@@ -24,7 +24,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't get username %v", err)
 	}
 	log.Println("username", username)
-	
+
 	// Become configured user.
 	userinfo, err := user.Lookup(username)
 	if err != nil {
@@ -75,12 +75,12 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	const url = "https://git.liqui.org/rjkroege/scripts.git"
 
 	_, err = git.PlainClone(clonepath, false, &git.CloneOptions{
-		URL:            url  ,
-		Progress:          os.Stdout,
-		    Auth: &githttp.BasicAuth{
-   		     Username: "abc123", // anything except an empty string
-  		      Password: gitcred,
-   		 },
+		URL:      url,
+		Progress: os.Stdout,
+		Auth: &githttp.BasicAuth{
+			Username: "abc123", // anything except an empty string
+			Password: gitcred,
+		},
 		Depth: 4,
 	})
 	if err != nil {
@@ -98,7 +98,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't make path: %q: %v", sshdir, err)
 	}
 	log.Println(".ssh made")
-	
+
 	sshval, err := readStingFromMetadata("sshkey")
 	if err != nil {
 		return fmt.Errorf("can't get sshkey %v", err)
@@ -114,27 +114,10 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	}
 	log.Println("recursiveChown .ssh")
 
-	// Setup rclone configuration.
-	rclonepath := filepath.Join(userinfo.HomeDir, ".config", "rclone")
-	if err := os.MkdirAll(rclonepath, 0755); err != nil {
-		return fmt.Errorf("can't make path: %q: %v", rclonepath, err)
+	// Setup rclone support.
+	if err := setupRclone(userinfo.HomeDir, uid, gid); err != nil {
+		return err
 	}
-	log.Printf("%q made", rclonepath)
-
-	rcloneval, err := readStingFromMetadata("rcloneconfig")
-	if err != nil {
-		return fmt.Errorf("can't get rcloneconfig %v", err)
-	}
-	rclonefilepath := filepath.Join(rclonepath, "rclone.conf")
-	if err := ioutil.WriteFile(rclonefilepath, []byte(rcloneval), 0600); err != nil {
-		return fmt.Errorf("can't write  %q: %v", rclonefilepath, err)
-	}
-	log.Printf("%q made", rclonefilepath)
-
-	if err := recursiveChown(filepath.Join(userinfo.HomeDir, ".config"), uid, gid); err != nil {
-		return fmt.Errorf("can't chown .config: %v", err)
-	}
-	log.Println("recursiveChown .config")
 
 	// fix up suoders
 	sudoersentry := fmt.Sprintf("%s ALL=(ALL) NOPASSWD: ALL\n", username)
@@ -160,6 +143,12 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	// I can do this with su
 	// exec mk
 
+	// One way to proceed with the knowing when I've finished setting up the
+	// node is to write some kind of status. I had the idea of writing a
+	// metadata value here. This seems problematic: it's tedious to write the
+	// metadata service. Why don't I run something that I can poll for? When
+	// I can connect to it, the node is up? What should I run? Instead, I
+	// will poll for `ssh` connectivity and config from `ssh` instead.
 	return nil
 }
 
@@ -175,14 +164,13 @@ func readStingFromMetadata(entry string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("can't fetch metadata %v: %v", path, err)
 	}
-	
+
 	buffy, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("can't read metadata body %v: %v", path, err)
 	}
 	return string(buffy), nil
 }
-
 
 func recursiveChown(path string, uid, gid int) error {
 	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
@@ -194,3 +182,41 @@ func recursiveChown(path string, uid, gid int) error {
 	return nil
 }
 
+func setupRclone(homedir string, uid, gid int) error {
+	// Setup rclone configuration  including for Docker volume use.
+	const (
+		rclonedockerconfig = "/var/lib/docker-plugins/rclone/config"
+		rclonedockercache  = "/var/lib/docker-plugins/rclone/cache"
+	)
+	rclonepath := filepath.Join(homedir, ".config", "rclone")
+
+	for _, pth := range []string{rclonepath, rclonedockerconfig, rclonedockercache} {
+		if err := os.MkdirAll(pth, 0755); err != nil {
+			return fmt.Errorf("can't make path: %q: %v", pth, err)
+		}
+		log.Printf("%q made", pth)
+	}
+
+	rcloneval, err := readStingFromMetadata("rcloneconfig")
+	if err != nil {
+		return fmt.Errorf("can't get rcloneconfig %v", err)
+	}
+	rclonefilepath := filepath.Join(rclonepath, "rclone.conf")
+	if err := ioutil.WriteFile(rclonefilepath, []byte(rcloneval), 0600); err != nil {
+		return fmt.Errorf("can't write  %q: %v", rclonefilepath, err)
+	}
+	log.Printf("%q made", rclonefilepath)
+
+	dockerrclonefilepath := filepath.Join(rclonedockerconfig, "rclone.conf")
+	if err := ioutil.WriteFile(dockerrclonefilepath, []byte(rcloneval), 0600); err != nil {
+		return fmt.Errorf("can't write  %q: %v", dockerrclonefilepath, err)
+	}
+	log.Printf("%q made", dockerrclonefilepath)
+
+	if err := recursiveChown(filepath.Join(homedir, ".config"), uid, gid); err != nil {
+		return fmt.Errorf("can't chown .config: %v", err)
+	}
+	log.Println("recursiveChown .config")
+
+	return nil
+}
