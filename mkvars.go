@@ -86,7 +86,7 @@ func printMkVars() {
 	// TODO(rjk): Takes too long if not running on GCP. How can I make it faster?
 	// Am I running on GCP under gocloud?
 	if runtime.GOOS == "linux" {
-		if _, err := readStingFromMetadata("username"); err == nil {
+		if _, err := readStringFromMetadata("username"); err == nil {
 			platformtargets = append(platformtargets, "gcp")
 		}
 	}

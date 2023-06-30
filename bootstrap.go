@@ -19,7 +19,7 @@ import (
 func BootstrapGcpNode(targetpath, scriptspath string) error {
 	// Get user
 	// User account (can I read stuffs from the gcp to configure?)
-	username, err := readStingFromMetadata("username")
+	username, err := readStringFromMetadata("username")
 	if err != nil {
 		return fmt.Errorf("can't get username %v", err)
 	}
@@ -53,7 +53,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 
 	// Get git credential
 	// User account (can I read stuffs from the gcp to configure?)
-	gitcred, err := readStingFromMetadata("gitcredential")
+	gitcred, err := readStringFromMetadata("gitcredential")
 	if err != nil {
 		return fmt.Errorf("can't get getcredential %v", err)
 	}
@@ -99,7 +99,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	}
 	log.Println(".ssh made")
 
-	sshval, err := readStingFromMetadata("sshkey")
+	sshval, err := readStringFromMetadata("sshkey")
 	if err != nil {
 		return fmt.Errorf("can't get sshkey %v", err)
 	}
@@ -154,7 +154,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 
 const metabase = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/"
 
-func readStingFromMetadata(entry string) (string, error) {
+func readStringFromMetadata(entry string) (string, error) {
 	path := metabase + entry
 
 	client := &http.Client{}
@@ -197,7 +197,7 @@ func setupRclone(homedir string, uid, gid int) error {
 		log.Printf("%q made", pth)
 	}
 
-	rcloneval, err := readStingFromMetadata("rcloneconfig")
+	rcloneval, err := readStringFromMetadata("rcloneconfig")
 	if err != nil {
 		return fmt.Errorf("can't get rcloneconfig %v", err)
 	}

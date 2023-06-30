@@ -17,7 +17,7 @@ import (
 func SetupGcpAccount(targetpath, scriptspath string) error {
 	// Get user
 	// User account (can I read stuffs from the gcp to configure?)
-	username, err := readStingFromMetadata("username")
+	username, err := readStringFromMetadata("username")
 	if err != nil {
 		return fmt.Errorf("can't get username %v", err)
 	}
@@ -60,7 +60,7 @@ func SetupGcpAccount(targetpath, scriptspath string) error {
 	}
 	log.Println(".ssh made")
 
-	sshval, err := readStingFromMetadata("sshkey")
+	sshval, err := readStringFromMetadata("sshkey")
 	if err != nil {
 		return fmt.Errorf("can't get sshkey %v", err)
 	}
