@@ -36,7 +36,6 @@ func isCos() bool {
 	return false
 }
 
-
 // printMkVars implements one of the two modes of mkconfig: printing
 // mk variables
 func printMkVars() {
@@ -59,7 +58,7 @@ func printMkVars() {
 		p9path = envp9path
 	}
 
-	platformtargets := make([]string,0)
+	platformtargets := make([]string, 0)
 	platformtargets = append(platformtargets, runtime.GOOS, runtime.GOARCH)
 
 	if fs, err := os.Stat(p9path); err == nil && fs.IsDir() {
@@ -68,9 +67,9 @@ func printMkVars() {
 
 	// TODO(rjk): Add check for corp as needed and add to platformtargets
 	// This is for MacOS. I need something different for Linux.
-	if fs, err := os.Stat("/usr/local/bin/gcert"); err == nil && fs.Mode() & 0111 != 0 {
+	if fs, err := os.Stat("/usr/local/bin/gcert"); err == nil && fs.Mode()&0111 != 0 {
 		platformtargets = append(platformtargets, "corp")
-	} else if fs, err := os.Stat("/usr//bin/gcert"); err == nil && fs.Mode() & 0111 != 0 {
+	} else if fs, err := os.Stat("/usr//bin/gcert"); err == nil && fs.Mode()&0111 != 0 {
 		platformtargets = append(platformtargets, "corp")
 	}
 
@@ -84,9 +83,12 @@ func printMkVars() {
 		}
 	}
 
+	// TODO(rjk): Takes too long if not running on GCP. How can I make it faster?
 	// Am I running on GCP under gocloud?
-	if _, err := readStingFromMetadata("username"); err == nil {
-		platformtargets = append(platformtargets, "gcp")
+	if runtime.GOOS == "linux" {
+		if _, err := readStingFromMetadata("username"); err == nil {
+			platformtargets = append(platformtargets, "gcp")
+		}
 	}
 
 	fmt.Println("platformtargets", "=", strings.Join(platformtargets, "_"))

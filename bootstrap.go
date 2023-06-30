@@ -129,7 +129,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 
 	// fix up git credentials
 	gitcredpath := filepath.Join(userinfo.HomeDir, ".git-credentials")
-	// TODO(rjk): read this from configuration.
+	// TODO(rjk): read the site from configuration.
 	gitcredentry := fmt.Sprintf("https://%s:%s@git.liqui.org", username, gitcred)
 	if err := ioutil.WriteFile(gitcredpath, []byte(gitcredentry), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", gitcredpath, err)

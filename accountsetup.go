@@ -1,14 +1,14 @@
 package main
 
 import (
-	"path/filepath"
 	"os"
-//	"path"
-	"os/user"
+	"path/filepath"
+	//	"path"
 	"fmt"
-	"strconv"
 	"io/ioutil"
 	"log"
+	"os/user"
+	"strconv"
 )
 
 // SetupGcpAccount is a subset of bootstrap for building out an account
@@ -22,7 +22,7 @@ func SetupGcpAccount(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't get username %v", err)
 	}
 	log.Println("username", username)
-	
+
 	// Get infos about the users.
 	userinfo, err := user.Lookup(username)
 	if err != nil {
@@ -39,7 +39,6 @@ func SetupGcpAccount(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't make numeric gid %s: %v", userinfo.Gid, err)
 	}
 	log.Println("uid", uid, "gid", gid)
-
 
 	// Make a home directory
 	homedir := userinfo.HomeDir
@@ -60,7 +59,7 @@ func SetupGcpAccount(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't make path: %q: %v", sshdir, err)
 	}
 	log.Println(".ssh made")
-	
+
 	sshval, err := readStingFromMetadata("sshkey")
 	if err != nil {
 		return fmt.Errorf("can't get sshkey %v", err)
