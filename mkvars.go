@@ -6,6 +6,8 @@ import (
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/rjkroege/gocloud/config"
 )
 
 // linuxFlavour determines the type of Linux that we're running on based on the package management system.
@@ -84,9 +86,9 @@ func printMkVars() {
 	}
 
 	// TODO(rjk): Takes too long if not running on GCP. How can I make it faster?
-	// Am I running on GCP under gocloud?
+	// How to know if a machine is a compute node
 	if runtime.GOOS == "linux" {
-		if _, err := readStringFromMetadata("username"); err == nil {
+		if config.RunningInGcp(config.NewNodeDirectMetadataClient()) {
 			platformtargets = append(platformtargets, "gcp")
 		}
 	}
