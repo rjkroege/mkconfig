@@ -16,8 +16,8 @@ import (
 	"github.com/rjkroege/gocloud/config"
 )
 
-// BootstrapGcpNode configures a GCP node. This is executed by the //
-`gocloud` tool via the -bootstrap flag to setup node state such as ssh
+// BootstrapGcpNode configures a GCP node. This is executed by the
+// `gocloud` tool via the -bootstrap flag to setup node state such as ssh
 // keys and git access.
 func BootstrapGcpNode(targetpath, scriptspath string) error {
 	nb, err := config.GetNodeMetadata(config.NewNodeDirectMetadataClient())
