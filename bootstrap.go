@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os/user"
 	"strconv"
-	"net/url"
 
+	"github.com/rjkroege/gocloud/config"
 	git "gopkg.in/src-d/go-git.v4"
 	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
-	"github.com/rjkroege/gocloud/config"
 )
 
 // BootstrapGcpNode configures a GCP node. This is executed by the
@@ -93,7 +93,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	}
 	log.Println(".ssh made")
 
- 	authkeypath := filepath.Join(sshdir, "authorized_keys")
+	authkeypath := filepath.Join(sshdir, "authorized_keys")
 	if err := ioutil.WriteFile(authkeypath, []byte(nb["sshkey"]), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", authkeypath, err)
 	}
