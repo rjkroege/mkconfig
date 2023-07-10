@@ -17,9 +17,8 @@ import (
 // on a GCP node when the node is actually getting built by GCP's gcloud
 // tool.
 // TODO(rjk): It's conceivable that there is code duplication here that I
-// could 
+// could remove.
 func SetupGcpAccount(targetpath, scriptspath string) error {
-
 	nb, err := config.GetNodeMetadata(config.NewNodeDirectMetadataClient())
 	if err != nil {
 		return fmt.Errorf("problem with fetching node metadata: %v", err)

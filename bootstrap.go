@@ -16,26 +16,16 @@ import (
 	"github.com/rjkroege/gocloud/config"
 )
 
-// This code is opinionated.
+// BootstrapGcpNode configures a GCP node. This is executed by the //
+`gocloud` tool via the -bootstrap flag to setup node state such as ssh
+// keys and git access.
 func BootstrapGcpNode(targetpath, scriptspath string) error {
-
-// New approach: top-level.
-// Move the readString... to gocloud
-// multi-sided changes are a pain. (But uni-repos are also a pain)
-
 	nb, err := config.GetNodeMetadata(config.NewNodeDirectMetadataClient())
 	if err != nil {
 		return fmt.Errorf("problem with fetching node metadata: %v", err)
 	}
 
-	// Get user
-	// User account (can I read stuffs from the gcp to configure?)
-// 	username, err := readStringFromMetadata("username")
-// 	if err != nil {
-// 		return fmt.Errorf("can't get username %v", err)
-// 	}
-// 	log.Println("username", username)
-// 
+	// Get user name from GCP metadata above.
 	// Become configured user.
 	userinfo, err := user.Lookup(nb["username"])
 	if err != nil {
@@ -62,16 +52,9 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	}
 	log.Println("installed mk")
 
-	// Get git credential
-	// User account (can I read stuffs from the gcp to configure?)
-// 	gitcred, err := readStringFromMetadata("gitcredential")
-// 	if err != nil {
-// 		return fmt.Errorf("can't get getcredential %v", err)
-// 	}
-// 	log.Println("gitcred", gitcred)
-
 	// Get git tree. Setup in ~username/tools/scripts with binaries in
 	// /usr/local/bin
+	// TODO(rjk): This could also be configurable.
 	clonepath := scriptspath
 	chownpath := scriptspath
 	if !filepath.IsAbs(clonepath) {
@@ -82,11 +65,8 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't make scripts path %q: %v", clonepath, err)
 	}
 
-	// TODO(rjk): Read this from configuration eventually.
 	githost := nb["githost"]
 	gitcred := nb["gitcredential"]
-
-log.Printf("githost %q gitcred %q\n", githost, gitcred)
 
 	_, err = git.PlainClone(clonepath, false, &git.CloneOptions{
 		URL:      githost,
@@ -113,10 +93,6 @@ log.Printf("githost %q gitcred %q\n", githost, gitcred)
 	}
 	log.Println(".ssh made")
 
-// 	sshval, err := readStringFromMetadata("sshkey")
-// 	if err != nil {
-// 		return fmt.Errorf("can't get sshkey %v", err)
-// 	}
  	authkeypath := filepath.Join(sshdir, "authorized_keys")
 	if err := ioutil.WriteFile(authkeypath, []byte(nb["sshkey"]), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", authkeypath, err)
@@ -210,10 +186,6 @@ func setupRclone(homedir string, uid, gid int, nb config.NodeMetadata) error {
 		log.Printf("%q made", pth)
 	}
 
-// 	rcloneval, err := readStringFromMetadata("rcloneconfig")
-// 	if err != nil {
-// 		return fmt.Errorf("can't get rcloneconfig %v", err)
-// 	}
 	rclonefilepath := filepath.Join(rclonepath, "rclone.conf")
 	if err := ioutil.WriteFile(rclonefilepath, []byte(nb["rcloneconfig"]), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", rclonefilepath, err)
