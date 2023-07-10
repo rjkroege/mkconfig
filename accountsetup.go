@@ -1,32 +1,33 @@
 package main
 
 import (
-	"path/filepath"
 	"os"
-//	"path"
-	"os/user"
+	"path/filepath"
+	//	"path"
 	"fmt"
-	"strconv"
 	"io/ioutil"
 	"log"
+	"os/user"
+	"strconv"
+
+	"github.com/rjkroege/gocloud/config"
 )
 
 // SetupGcpAccount is a subset of bootstrap for building out an account
 // on a GCP node when the node is actually getting built by GCP's gcloud
 // tool.
+// TODO(rjk): It's conceivable that there is code duplication here that I
+// could remove.
 func SetupGcpAccount(targetpath, scriptspath string) error {
-	// Get user
-	// User account (can I read stuffs from the gcp to configure?)
-	username, err := readStingFromMetadata("username")
+	nb, err := config.GetNodeMetadata(config.NewNodeDirectMetadataClient())
 	if err != nil {
-		return fmt.Errorf("can't get username %v", err)
+		return fmt.Errorf("problem with fetching node metadata: %v", err)
 	}
-	log.Println("username", username)
-	
+
 	// Get infos about the users.
-	userinfo, err := user.Lookup(username)
+	userinfo, err := user.Lookup(nb["username"])
 	if err != nil {
-		return fmt.Errorf("can't find user %s: %v", username, err)
+		return fmt.Errorf("can't find user %s: %v", nb["username"], err)
 	}
 
 	// Code works only on UNIX. TODO(rjk): generalize as needed.
@@ -39,7 +40,6 @@ func SetupGcpAccount(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't make numeric gid %s: %v", userinfo.Gid, err)
 	}
 	log.Println("uid", uid, "gid", gid)
-
 
 	// Make a home directory
 	homedir := userinfo.HomeDir
@@ -60,13 +60,9 @@ func SetupGcpAccount(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't make path: %q: %v", sshdir, err)
 	}
 	log.Println(".ssh made")
-	
-	sshval, err := readStingFromMetadata("sshkey")
-	if err != nil {
-		return fmt.Errorf("can't get sshkey %v", err)
-	}
+
 	authkeypath := filepath.Join(sshdir, "authorized_keys")
-	if err := ioutil.WriteFile(authkeypath, []byte(sshval), 0600); err != nil {
+	if err := ioutil.WriteFile(authkeypath, []byte(nb["sshkey"]), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", authkeypath, err)
 	}
 	log.Println(".ssh/authorized_keys made")
@@ -77,8 +73,8 @@ func SetupGcpAccount(targetpath, scriptspath string) error {
 	log.Println("recursiveChown .ssh")
 
 	// fix up suoders
-	sudoersentry := fmt.Sprintf("%s ALL=(ALL) NOPASSWD: ALL\n", username)
-	suoderspath := filepath.Join("/etc/sudoers.d", username)
+	sudoersentry := fmt.Sprintf("%s ALL=(ALL) NOPASSWD: ALL\n", nb["username"])
+	suoderspath := filepath.Join("/etc/sudoers.d", nb["username"])
 	if err := ioutil.WriteFile(suoderspath, []byte(sudoersentry), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", suoderspath, err)
 	}

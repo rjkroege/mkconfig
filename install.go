@@ -1,6 +1,8 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -10,8 +12,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"archive/tar"
-	"compress/gzip"
 
 	oauth "golang.org/x/oauth2/google"
 )
@@ -27,7 +27,7 @@ func copyUrl(client *http.Client, url string, ofn string) error {
 
 	// On linux, I need to unlink first.
 	os.Remove(ofn)
-	
+
 	ofd, err := os.Create(ofn)
 	if err != nil {
 		return fmt.Errorf("copyUrl can't open output %s: %v", ofn, err)
@@ -59,7 +59,7 @@ func InstallBinTargets(targetpath string, args []string) error {
 
 	if err := os.MkdirAll(targetpath, 0755); err != nil {
 		return fmt.Errorf("can't have a target path %q: %v", targetpath, err)
-	}	
+	}
 
 	for _, wantedbin := range args {
 		localpath := filepath.Join(targetpath, wantedbin)
@@ -113,7 +113,7 @@ func TarXZF(targetpath string, ifd io.Reader) error {
 	}
 
 	tr := tar.NewReader(zr)
-	for  {
+	for {
 		h, err := tr.Next()
 		if err != nil && err == io.EOF {
 			log.Println("eof?")

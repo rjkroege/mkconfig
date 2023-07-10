@@ -1,0 +1,6 @@
+Edit X:mkconfig/\+Errors: 1,$d
+X:mkconfig/.*\.go: w
+
+
+{go build && ./mkconfig -vars}
+

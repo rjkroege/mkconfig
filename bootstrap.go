@@ -7,28 +7,29 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
+	"net/url"
 	"os/user"
 	"strconv"
 
+	"github.com/rjkroege/gocloud/config"
 	git "gopkg.in/src-d/go-git.v4"
 	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 )
 
-// This code is opinionated.
+// BootstrapGcpNode configures a GCP node. This is executed by the
+// `gocloud` tool via the -bootstrap flag to setup node state such as ssh
+// keys and git access.
 func BootstrapGcpNode(targetpath, scriptspath string) error {
-	// Get user
-	// User account (can I read stuffs from the gcp to configure?)
-	username, err := readStingFromMetadata("username")
+	nb, err := config.GetNodeMetadata(config.NewNodeDirectMetadataClient())
 	if err != nil {
-		return fmt.Errorf("can't get username %v", err)
+		return fmt.Errorf("problem with fetching node metadata: %v", err)
 	}
-	log.Println("username", username)
 
+	// Get user name from GCP metadata above.
 	// Become configured user.
-	userinfo, err := user.Lookup(username)
+	userinfo, err := user.Lookup(nb["username"])
 	if err != nil {
-		return fmt.Errorf("can't find user %s: %v", username, err)
+		return fmt.Errorf("can't find user %s: %v", nb["username"], err)
 	}
 
 	// Code works only on UNIX. TODO(rjk): generalize as needed.
@@ -47,20 +48,13 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't install mk to %q: %v", targetpath, err)
 	}
 	if err := os.Chown(filepath.Join(targetpath, "mk"), uid, gid); err != nil {
-		return fmt.Errorf("can't chown mk to %s: %v", username, err)
+		return fmt.Errorf("can't chown mk to %s: %v", nb["username"], err)
 	}
 	log.Println("installed mk")
 
-	// Get git credential
-	// User account (can I read stuffs from the gcp to configure?)
-	gitcred, err := readStingFromMetadata("gitcredential")
-	if err != nil {
-		return fmt.Errorf("can't get getcredential %v", err)
-	}
-	log.Println("gitcred", gitcred)
-
 	// Get git tree. Setup in ~username/tools/scripts with binaries in
 	// /usr/local/bin
+	// TODO(rjk): This could also be configurable.
 	clonepath := scriptspath
 	chownpath := scriptspath
 	if !filepath.IsAbs(clonepath) {
@@ -71,11 +65,11 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 		return fmt.Errorf("can't make scripts path %q: %v", clonepath, err)
 	}
 
-	// TODO(rjk): Read this from configuration eventually.
-	const url = "https://git.liqui.org/rjkroege/scripts.git"
+	githost := nb["githost"]
+	gitcred := nb["gitcredential"]
 
 	_, err = git.PlainClone(clonepath, false, &git.CloneOptions{
-		URL:      url,
+		URL:      githost,
 		Progress: os.Stdout,
 		Auth: &githttp.BasicAuth{
 			Username: "abc123", // anything except an empty string
@@ -99,12 +93,8 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	}
 	log.Println(".ssh made")
 
-	sshval, err := readStingFromMetadata("sshkey")
-	if err != nil {
-		return fmt.Errorf("can't get sshkey %v", err)
-	}
 	authkeypath := filepath.Join(sshdir, "authorized_keys")
-	if err := ioutil.WriteFile(authkeypath, []byte(sshval), 0600); err != nil {
+	if err := ioutil.WriteFile(authkeypath, []byte(nb["sshkey"]), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", authkeypath, err)
 	}
 	log.Println(".ssh/authorized_keys made")
@@ -115,29 +105,21 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	log.Println("recursiveChown .ssh")
 
 	// Setup rclone support.
-	if err := setupRclone(userinfo.HomeDir, uid, gid); err != nil {
+	if err := setupRclone(userinfo.HomeDir, uid, gid, nb); err != nil {
 		return err
 	}
 
 	// fix up suoders
-	sudoersentry := fmt.Sprintf("%s ALL=(ALL) NOPASSWD: ALL\n", username)
-	suoderspath := filepath.Join("/etc/sudoers.d", username)
+	sudoersentry := fmt.Sprintf("%s ALL=(ALL) NOPASSWD: ALL\n", nb["username"])
+	suoderspath := filepath.Join("/etc/sudoers.d", nb["username"])
 	if err := ioutil.WriteFile(suoderspath, []byte(sudoersentry), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", suoderspath, err)
 	}
 	log.Println(suoderspath, "made")
 
-	// fix up git credentials
-	gitcredpath := filepath.Join(userinfo.HomeDir, ".git-credentials")
-	// TODO(rjk): read this from configuration.
-	gitcredentry := fmt.Sprintf("https://%s:%s@git.liqui.org", username, gitcred)
-	if err := ioutil.WriteFile(gitcredpath, []byte(gitcredentry), 0600); err != nil {
-		return fmt.Errorf("can't write  %q: %v", gitcredpath, err)
+	if err := writegitcred(userinfo, nb["githost"], nb["username"], nb["gitcredential"], uid, gid); err != nil {
+		return err
 	}
-	if err := recursiveChown(gitcredpath, uid, gid); err != nil {
-		return fmt.Errorf("can't chown %q: %v", gitcredpath, err)
-	}
-	log.Println("recursiveChown .git-credentials")
 
 	// Exec 'mk' here (as different username)
 	// I can do this with su
@@ -152,24 +134,31 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	return nil
 }
 
-const metabase = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/"
+func writegitcred(userinfo *user.User, githost, username, gitcred string, uid, gid int) error {
+	// fix up git credentials
+	gitcredpath := filepath.Join(userinfo.HomeDir, ".git-credentials")
+	// TODO(rjk): read the site from configuration.
 
-func readStingFromMetadata(entry string) (string, error) {
-	path := metabase + entry
-
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", path, nil)
-	req.Header.Add("Metadata-Flavor", "Google")
-	resp, err := client.Do(req)
+	// TODO(rjk): I should check that this is valid all the way back in gocloud
+	// before sending it to the remote machine.
+	giturl, err := url.Parse(githost)
 	if err != nil {
-		return "", fmt.Errorf("can't fetch metadata %v: %v", path, err)
+		return fmt.Errorf("can't parse githhost  %q: %v", githost, err)
 	}
+	giturl.User = url.UserPassword(username, gitcred)
+	// Strip the path at the end.
+	giturl.Path = ""
+	giturl.RawQuery = ""
+	giturl.Fragment = ""
 
-	buffy, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("can't read metadata body %v: %v", path, err)
+	if err := ioutil.WriteFile(gitcredpath, []byte(giturl.String()), 0600); err != nil {
+		return fmt.Errorf("can't write  %q: %v", gitcredpath, err)
 	}
-	return string(buffy), nil
+	if err := recursiveChown(gitcredpath, uid, gid); err != nil {
+		return fmt.Errorf("can't chown %q: %v", gitcredpath, err)
+	}
+	log.Println("recursiveChown .git-credentials")
+	return nil
 }
 
 func recursiveChown(path string, uid, gid int) error {
@@ -182,7 +171,7 @@ func recursiveChown(path string, uid, gid int) error {
 	return nil
 }
 
-func setupRclone(homedir string, uid, gid int) error {
+func setupRclone(homedir string, uid, gid int, nb config.NodeMetadata) error {
 	// Setup rclone configuration  including for Docker volume use.
 	const (
 		rclonedockerconfig = "/var/lib/docker-plugins/rclone/config"
@@ -197,18 +186,14 @@ func setupRclone(homedir string, uid, gid int) error {
 		log.Printf("%q made", pth)
 	}
 
-	rcloneval, err := readStingFromMetadata("rcloneconfig")
-	if err != nil {
-		return fmt.Errorf("can't get rcloneconfig %v", err)
-	}
 	rclonefilepath := filepath.Join(rclonepath, "rclone.conf")
-	if err := ioutil.WriteFile(rclonefilepath, []byte(rcloneval), 0600); err != nil {
+	if err := ioutil.WriteFile(rclonefilepath, []byte(nb["rcloneconfig"]), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", rclonefilepath, err)
 	}
 	log.Printf("%q made", rclonefilepath)
 
 	dockerrclonefilepath := filepath.Join(rclonedockerconfig, "rclone.conf")
-	if err := ioutil.WriteFile(dockerrclonefilepath, []byte(rcloneval), 0600); err != nil {
+	if err := ioutil.WriteFile(dockerrclonefilepath, []byte(nb["rcloneconfig"]), 0600); err != nil {
 		return fmt.Errorf("can't write  %q: %v", dockerrclonefilepath, err)
 	}
 	log.Printf("%q made", dockerrclonefilepath)

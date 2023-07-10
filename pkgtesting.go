@@ -101,7 +101,7 @@ func CheckLinuxPackagesInstalled(args []string) error {
 	case fl == "alpine":
 		return CheckAlpinePackagesInstalled(args)
 	case fl == "cos":
-		// No packages to install on Cos. 
+		// No packages to install on Cos.
 		return nil
 	}
 	// Shouldn't get here.
