@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	//	"path"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -72,7 +71,7 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 		URL:      githost,
 		Progress: os.Stdout,
 		Auth: &githttp.BasicAuth{
-			Username: "abc123", // anything except an empty string
+			Username: nb["username"],
 			Password: gitcred,
 		},
 		Depth: 4,
