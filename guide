@@ -3,4 +3,4 @@ X:mkconfig/.*\.go: w
 
 
 {go build && ./mkconfig -vars}
-
+{binbuild mkconfig}
