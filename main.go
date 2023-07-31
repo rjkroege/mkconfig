@@ -5,21 +5,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
-	"runtime"
 )
 
 // defaultTargetPath returns the default target path for the platform.
+// I am just going to use /usr/local/bin everywhere. Always.
 func defaultTargetPath() string {
-	s := "/usr/local/bin"
-	// TODO(rjk): Probably needs adjustment
-	if runtime.GOOS != "darwin" && !isCos() {
-		h := os.ExpandEnv("$HOME")
-		if h != "" {
-			s = filepath.Join(h, "bin")
-		}
-	}
-	return s
+	return "/usr/local/bin"
 }
 
 var targetpath = flag.String("targetpath", defaultTargetPath(), "install binaries here")
