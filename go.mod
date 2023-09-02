@@ -9,7 +9,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/rjkroege/gocloud v0.0.0-20230708143048-95e6220935a6
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rjkroege/gocloud v0.0.0-20230902170630-5a00409dc2fe
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401
