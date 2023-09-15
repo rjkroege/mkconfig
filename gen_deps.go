@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func addGoDep(newbins []string, bin, binrepo, binarchive string) []string {
+func addGoDep(newbins,  deproots []string, bin, binarchive string) []string {
 	for _, goos := range []string{"linux", "darwin"} {
 		archs := []string{}
 		switch goos {
@@ -18,7 +18,9 @@ func addGoDep(newbins []string, bin, binrepo, binarchive string) []string {
 		}
 		for _, goarch := range archs {
 			archivetarget := filepath.Join(binarchive, goos, goarch, bin)
-			fmt.Printf("%s: %s\n", archivetarget, binrepo)
+			for _, dr := range deproots {
+				fmt.Printf("%s: %s\n", archivetarget, dr)
+			}
 			newbins = append(newbins, archivetarget)
 		}
 	}
@@ -26,10 +28,12 @@ func addGoDep(newbins []string, bin, binrepo, binarchive string) []string {
 	return newbins
 }
 
-func addSwiftDep(newbins []string, bin, binrepo, binarchive string) []string {
+func addSwiftDep(newbins,  deproots []string, bin, binarchive string) []string {
 	for _, goarch := range []string{"amd64", "arm64"} {
 		archivetarget := filepath.Join(binarchive, "darwin", goarch, bin)
-		fmt.Printf("%s: %s\n", archivetarget, binrepo)
+			for _, dr := range deproots {
+				fmt.Printf("%s: %s\n", archivetarget, dr)
+			}
 		newbins = append(newbins, archivetarget)
 	}
 	return newbins
@@ -73,13 +77,16 @@ func genBinDeps(binarchive string, paths []string) error {
 		}
 
 		bin := filepath.Base(pth)
-		deproot := filepath.Join(pkgroot, ".git", "HEAD")
+		deproots := []string{
+			filepath.Join(pkgroot, ".git", "HEAD"),
+			filepath.Join(pkgroot, ".git", "index"),
+		}
 
 		switch {
 		case isSwift(pkgroot):
-			newbins = addSwiftDep(newbins, bin, deproot, binarchive)
+			newbins = addSwiftDep(newbins, deproots, bin, binarchive)
 		case isGo(pkgroot):
-			newbins = addGoDep(newbins, bin, deproot, binarchive)
+			newbins = addGoDep(newbins, deproots, bin, binarchive)
 		default:
 			return fmt.Errorf("binary %q does not use a supported language", pth)
 		}
