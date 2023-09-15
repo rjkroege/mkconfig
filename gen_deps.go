@@ -7,68 +7,87 @@ import (
 	"strings"
 )
 
-type Cache map[string]string
-
-// NewLocationCache makes a map of binary target name to path of Git HEAD
-// file. This map is used to generate the dependencies below.
-func NewLocationCache(roots []string) (Cache, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("no home dir? %v", err)
-	}
-
-	// binary target to its Git HEAD file mapping.
-	cache := make(Cache)
-
-	for _, root := range roots {
-		// A root can use a ~ to mean my home directory for convenience.
-		if root[0] == '~' {
-			root = filepath.Join(home, root[1:])
+func addGoDep(newbins []string, bin, binrepo, binarchive string) []string {
+	for _, goos := range []string{"linux", "darwin"} {
+		archs := []string{}
+		switch goos {
+		case "linux":
+			archs = []string{"amd64", "arm", "arm64"}
+		case "darwin":
+			archs = []string{"amd64",  "arm64"}
 		}
-
-		ents, err := os.ReadDir(root)
-		if err != nil {
-			return nil, fmt.Errorf("%q is an invalid root for tool sources: %v", root, err)
-		}
-
-		for _, e := range ents {
-			if _, err := os.Stat(filepath.Join(root, e.Name(), "go.mod")); err != nil {
-				continue
-			}
-			stimulatingdep := filepath.Join(root, e.Name(), ".git/HEAD")
-			if _, err := os.Stat(stimulatingdep); err != nil {
-				continue
-			}
-			cache[e.Name()] = stimulatingdep
+		for _, goarch := range archs {
+			archivetarget := filepath.Join(binarchive, goos, goarch, bin)
+			fmt.Printf("%s: %s\n", archivetarget, binrepo)
+			newbins = append(newbins, archivetarget)
 		}
 	}
-	return cache, nil
+
+	return newbins
+}
+
+func addSwiftDep(newbins []string, bin, binrepo, binarchive string) []string {
+	for _, goarch := range []string{"amd64", "arm64"} {
+		archivetarget := filepath.Join(binarchive, "darwin", goarch, bin)
+		fmt.Printf("%s: %s\n", archivetarget, binrepo)
+		newbins = append(newbins, archivetarget)
+	}
+	return newbins
+}
+
+func findPkgRoot(pth string) (string, error) {
+	for {
+		if _, err := os.Stat(filepath.Join(pth, ".git")); err == nil {
+			return pth, nil
+		}
+		if pth == "/" {
+			return "", fmt.Errorf("no .git in any parent")
+		}
+		pth = filepath.Dir(pth)
+	}
+	// Should never get here.
+	return "", nil
+}
+
+func isSwift(pkgroot string) bool {
+	_, err := os.Stat(filepath.Join(pkgroot, "Package.swift"))
+	return err == nil
+}
+
+func isGo(pkgroot string) bool {
+	_, err := os.Stat(filepath.Join(pkgroot, "go.mod"))
+	return err == nil
 }
 
 // genBinDeps assumes that we run inside of mk and generates a set of
 // dependencies for the new style Go building approach.
-func genBinDeps() error {
-	// TODO(rjk): the roots of the location cache might be configurable.
-	cache, err := NewLocationCache([]string{"~/tools", "~/tools/_builds"})
-	if err != nil {
-		return err
-	}
+func genBinDeps(binarchive string, paths []string) error {
+	newbins := make([]string, 0)
 
-	// The invoking mkfile needs to define $binarchive and $gobins. This
-	// function uses gobins environment variable from the mkfile.
-	gobins := strings.Split(os.Getenv("gobins"), " ")
+	for _, pth := range paths {
+		// I might call Abs here to make the path sane
 
-	for _, bin := range gobins {
-		binrepo, ok := cache[bin]
-		if !ok {
-			return fmt.Errorf("binary %q fails to be a Git-tracked Go tool")
+		pkgroot, err := findPkgRoot(pth)
+		if err != nil {
+			return fmt.Errorf("binary %q is not a Git-tracked toos: %v", pth, err)
 		}
 
-		for _, goos := range []string{"linux", "darwin"} {
-			for _, goarch := range []string{"amd64", "arm", "arm64"} {
-				fmt.Printf("$binarchive/%s/%s/%s: %s\n", goos, goarch, bin, binrepo)
-			}
+		bin := filepath.Base(pth)
+		deproot := filepath.Join(pkgroot, ".git", "HEAD")
+
+		switch {
+		case isSwift(pkgroot):
+			newbins = addSwiftDep(newbins, bin, deproot, binarchive)
+		case isGo(pkgroot):
+			newbins = addGoDep(newbins, bin, deproot, binarchive)
+		default:
+			return fmt.Errorf("binary %q does not use a supported language", pth)
 		}
 	}
+
+	// Print newbins
+	fmt.Printf("\nnewbins = \\\n	")
+	fmt.Printf(strings.Join(newbins, " \\\n	"))
+
 	return nil
 }

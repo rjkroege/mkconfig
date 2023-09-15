@@ -1,13 +1,13 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/url"
+	"os"
 	"os/user"
+	"path/filepath"
 	"strconv"
 
 	"github.com/rjkroege/gocloud/config"

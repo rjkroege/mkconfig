@@ -3,8 +3,10 @@ X:mkconfig/.*\.go: w
 
 
 {go build && ./mkconfig -vars}
-{binbuild mkconfig}
 
 {GOOS=linux GOARCH=arm go build && PWD=`{pwd} && cpu -namespace $_h helios4 ./mkconfig -vars}
 
 echo $_h
+
+
+gobins=rclone swiftbins=tageditor ./mkconfig -bindeps 
