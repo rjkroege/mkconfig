@@ -51,40 +51,6 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	}
 	log.Println("installed mk")
 
-	// Get git tree. Setup in ~username/tools/scripts with binaries in
-	// /usr/local/bin
-	// TODO(rjk): This could also be configurable.
-	clonepath := scriptspath
-	chownpath := scriptspath
-	if !filepath.IsAbs(clonepath) {
-		chownpath = filepath.Join(userinfo.HomeDir, scriptspath)
-		clonepath = filepath.Join(userinfo.HomeDir, scriptspath, "scripts")
-	}
-	if err := os.MkdirAll(clonepath, 0755); err != nil {
-		return fmt.Errorf("can't make scripts path %q: %v", clonepath, err)
-	}
-
-	githost := nb["githost"]
-	gitcred := nb["gitcredential"]
-
-	_, err = git.PlainClone(clonepath, false, &git.CloneOptions{
-		URL:      githost,
-		Progress: os.Stdout,
-		Auth: &githttp.BasicAuth{
-			Username: nb["username"],
-			Password: gitcred,
-		},
-		Depth: 4,
-	})
-	if err != nil {
-		return fmt.Errorf("can't checkout clonepath path %q: %v", clonepath, err)
-	}
-	log.Println("git fetched")
-	if err := recursiveChown(chownpath, uid, gid); err != nil {
-		return fmt.Errorf("can't chown %q: %v", chownpath, err)
-	}
-	log.Println("recursiveChown scripts")
-
 	// Setup ssh.
 	sshdir := filepath.Join(userinfo.HomeDir, ".ssh")
 	if err := os.MkdirAll(sshdir, 0755); err != nil {
@@ -119,6 +85,42 @@ func BootstrapGcpNode(targetpath, scriptspath string) error {
 	if err := writegitcred(userinfo, nb["githost"], nb["username"], nb["gitcredential"], uid, gid); err != nil {
 		return err
 	}
+
+	// Get git tree. Setup in ~username/tools/scripts with binaries in
+	// /usr/local/bin
+	// TODO(rjk): This could also be configurable.
+	clonepath := scriptspath
+	chownpath := scriptspath
+	if !filepath.IsAbs(clonepath) {
+		chownpath = filepath.Join(userinfo.HomeDir, scriptspath)
+		clonepath = filepath.Join(userinfo.HomeDir, scriptspath, "scripts")
+	}
+	if err := os.MkdirAll(clonepath, 0755); err != nil {
+		return fmt.Errorf("can't make scripts path %q: %v", clonepath, err)
+	}
+
+	githost := nb["githost"]
+	gitcred := nb["gitcredential"]
+
+	log.Println("gitcred", gitcred, "githost", githost)
+
+	_, err = git.PlainClone(clonepath, false, &git.CloneOptions{
+		URL:      githost,
+		Progress: os.Stdout,
+		Auth: &githttp.BasicAuth{
+			Username: nb["username"],
+			Password: gitcred,
+		},
+		Depth: 4,
+	})
+	if err != nil {
+		return fmt.Errorf("can't checkout clonepath path %q: %v", clonepath, err)
+	}
+	log.Println("git fetched")
+	if err := recursiveChown(chownpath, uid, gid); err != nil {
+		return fmt.Errorf("can't chown %q: %v", chownpath, err)
+	}
+	log.Println("recursiveChown scripts")
 
 	// Exec 'mk' here (as different username)
 	// I can do this with su
