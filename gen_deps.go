@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-func addGoDep(newbins,  deproots []string, bin, binarchive string) []string {
+func addGoDep(newbins, deproots []string, bin, binarchive string) []string {
 	for _, goos := range []string{"linux", "darwin"} {
 		archs := []string{}
 		switch goos {
 		case "linux":
 			archs = []string{"amd64", "arm", "arm64"}
 		case "darwin":
-			archs = []string{"amd64",  "arm64"}
+			archs = []string{"amd64", "arm64"}
 		}
 		for _, goarch := range archs {
 			archivetarget := filepath.Join(binarchive, goos, goarch, bin)
@@ -28,24 +28,33 @@ func addGoDep(newbins,  deproots []string, bin, binarchive string) []string {
 	return newbins
 }
 
-func addSwiftDep(newbins,  deproots []string, bin, binarchive string) []string {
+func addSwiftDep(newbins, deproots []string, bin, binarchive string) []string {
 	for _, goarch := range []string{"amd64", "arm64"} {
 		archivetarget := filepath.Join(binarchive, "darwin", goarch, bin)
-			for _, dr := range deproots {
-				fmt.Printf("%s: %s\n", archivetarget, dr)
-			}
+		for _, dr := range deproots {
+			fmt.Printf("%s: %s\n", archivetarget, dr)
+		}
 		newbins = append(newbins, archivetarget)
 	}
 	return newbins
 }
 
-func findPkgRoot(pth string) (string, error) {
+func addZigDep(newbins, deproots []string, bin, binarchive string) []string {
+	archivetarget := filepath.Join(binarchive, bin+".zigbuild")
+	for _, dr := range deproots {
+		fmt.Printf("%s: %s\n", archivetarget, dr)
+	}
+	newbins = append(newbins, archivetarget)
+	return newbins
+}
+
+func findPkgRoot(pth, wantedfile string) (string, error) {
 	for {
-		if _, err := os.Stat(filepath.Join(pth, ".git")); err == nil {
+		if _, err := os.Stat(filepath.Join(pth, wantedfile)); err == nil {
 			return pth, nil
 		}
 		if pth == "/" {
-			return "", fmt.Errorf("no .git in any parent")
+			return "", fmt.Errorf("no %s in any parent", wantedfile)
 		}
 		pth = filepath.Dir(pth)
 	}
@@ -63,6 +72,11 @@ func isGo(pkgroot string) bool {
 	return err == nil
 }
 
+func isZig(pkgroot string) bool {
+	_, err := os.Stat(filepath.Join(pkgroot, "build.zig"))
+	return err == nil
+}
+
 // genBinDeps assumes that we run inside of mk and generates a set of
 // dependencies for the new style Go building approach.
 func genBinDeps(binarchive string, paths []string) error {
@@ -71,9 +85,9 @@ func genBinDeps(binarchive string, paths []string) error {
 	for _, pth := range paths {
 		// I might call Abs here to make the path sane
 
-		pkgroot, err := findPkgRoot(pth)
+		pkgroot, err := findPkgRoot(pth, ".git")
 		if err != nil {
-			return fmt.Errorf("binary %q is not a Git-tracked toos: %v", pth, err)
+			return fmt.Errorf("binary %q is not a Git-tracked tool: %v", pth, err)
 		}
 
 		bin := filepath.Base(pth)
@@ -87,6 +101,8 @@ func genBinDeps(binarchive string, paths []string) error {
 			newbins = addSwiftDep(newbins, deproots, bin, binarchive)
 		case isGo(pkgroot):
 			newbins = addGoDep(newbins, deproots, bin, binarchive)
+		case isZig(pkgroot):
+			newbins = addZigDep(newbins, deproots, bin, binarchive)
 		default:
 			return fmt.Errorf("binary %q does not use a supported language", pth)
 		}
