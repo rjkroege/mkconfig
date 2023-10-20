@@ -42,7 +42,7 @@ func main() {
 		log.Println("mkconfig doing printMkVars")
 		printMkVars()
 	} else if *genbindeps != "" {
-		log.Println("mkconfig should generate deps")
+		log.Println("mkconfig should generate deps", args)
 		if err := genBinDeps(*genbindeps, args); err != nil {
 			log.Fatalf("can't generate deps %v", err)
 		}
