@@ -2,11 +2,15 @@ Edit X:mkconfig/\+Errors: 1,$d
 X:mkconfig/.*\.go: w
 
 
-{go build && ./mkconfig -vars}
+{go build && ./mkconfig vars}
 
 {GOOS=linux GOARCH=arm go build && PWD=`{pwd} && cpu -namespace $_h helios4 ./mkconfig -vars}
 
 echo $_h
 
 
-gobins=rclone swiftbins=tageditor ./mkconfig -bindeps 
+gobins=rclone swiftbins=tageditor 
+
+./mkconfig bindeps --verbose  `{mdfind 'kMDItemUserTags == tool'} > now
+
+mkconfig -bindeps $home/wrks/archive/bins `{mdfind 'kMDItemUserTags == tool'} > orig
