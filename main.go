@@ -5,6 +5,8 @@ import (
 	"io"
 	"log"
 	"os"
+
+	"github.com/alecthomas/kong"
 )
 
 // defaultTargetPath returns the default target path for the platform.
@@ -25,27 +27,48 @@ var scriptspath = flag.String("scriptspath", "./tools", "pull configuration to t
 var targetpath = flag.String("targetpath", defaultTargetPath(), "install binaries here")
 var verbose = flag.Bool("log", false, "print more detailed logging messages")
 
+
+var CLI struct {
+	Verbose      bool   `help:"Enable debugging logging."`
+
+	Vars struct {
+	} `cmd help:"print mk vars"`
+
+	Bindeps struct {
+		Args []string `arg:"" name:"args" help:"Packages to generate mk constructs for"`
+	} `cmd help:"generate binary deps for mk"`
+	
+}
+
+
 // Makes the state for the mkfile
 func main() {
-	flag.Parse()
-	args := flag.Args()
+	ctx := kong.Parse(&CLI)
+//	flag.Parse()
+//	args := flag.Args()
 
 	// By default, discard all log data during operation unless
 	// something goes wrong and needs to be reported.
-	if !*verbose {
+	if !CLI.Verbose {
 		log.SetOutput(io.Discard)
 	}
 
 	log.Println("mkconfig was executed")
 
-	if *genmkvars {
+	switch ctx.Command() {
+	case "vars":
 		log.Println("mkconfig doing printMkVars")
 		printMkVars()
-	} else if *genbindeps != "" {
-		log.Println("mkconfig should generate deps", args)
-		if err := genBinDeps(*genbindeps, args); err != nil {
+	case "bindeps <args>":
+		log.Println("mkconfig should generate deps", CLI.Bindeps.Args)
+		// TODO(rjk): This API surface should be fixed at sometime.
+		if err := genBinDeps("bindeps", CLI.Bindeps.Args); err != nil {
 			log.Fatalf("can't generate deps %v", err)
 		}
+	}
+
+/*
+	} else if *genbindeps != "" {
 	} else if *linuxpkg {
 		log.Println("CheckLinuxPackagesInstalled")
 		if err := CheckLinuxPackagesInstalled(args); err != nil {
@@ -68,5 +91,6 @@ func main() {
 			log.Fatalf("can't install targets: %v", err)
 		}
 	}
+*/
 	os.Exit(0)
 }
