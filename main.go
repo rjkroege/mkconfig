@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"io"
 	"log"
 	"os"
@@ -15,19 +14,6 @@ func defaultTargetPath() string {
 	return "/usr/local/bin"
 }
 
-// Keep sorted.
-// Consider using Kong here?
-var accountsetup = flag.Bool("accountsetup", false, "do GCP account setup")
-var bootstrap = flag.Bool("bootstrap", false, "do GCP bootstrap")
-var clientidfile = flag.String("clientid", "client_info.json", "the client id json file")
-var genbindeps = flag.String("bindeps", "", "generate binary deps for mk")
-var genmkvars = flag.Bool("vars", false, "print mk vars")
-var linuxpkg = flag.Bool("linuxpkg", false, "produces a pkgnotes list for the missing system packages")
-var scriptspath = flag.String("scriptspath", "./tools", "pull configuration to this dir")
-var targetpath = flag.String("targetpath", defaultTargetPath(), "install binaries here")
-var verbose = flag.Bool("log", false, "print more detailed logging messages")
-
-
 var CLI struct {
 	Verbose      bool   `help:"Enable debugging logging."`
 
@@ -37,15 +23,31 @@ var CLI struct {
 	Bindeps struct {
 		Args []string `arg:"" name:"args" help:"Deps directory and then packages for which to generate mk dependency data."`
 	} `cmd help:"generate binary deps for mk"`
+
+	Linuxpkg struct {
+		Packages []string `arg:"" name:"packages" help:"List of packages to generate names for."`
+	} `cmd help:"Produces a pkgnotes list for the missing system packages."`
 	
+	Bootstrap struct {
+		Targetpath string `arg:"" name:"targetpath" help:"install binaries here"`
+		Scriptspath string `arg:"" name:"scriptspath" help:"pull configuration to this dir"`
+	} `cmd help:"do GCP bootstrap"`
+
+	Accountsetup struct {
+		Targetpath string `arg:"" name:"targetpath" help:"install binaries here"`
+		Scriptspath string `arg:"" name:"scriptspath" help:"pull configuration to this dir"`
+	} `cmd help:"setup an account on an GCP node"`
+
+	Installbintargets struct {
+		Targetpath string `arg:"" name:"targetpath" help:"install binaries here"`
+		Args []string `arg:"" name:"args" help:"Binaries to install."`
+	} `cmd help:"Install binaries"`
 }
 
 
 // Makes the state for the mkfile
 func main() {
 	ctx := kong.Parse(&CLI)
-//	flag.Parse()
-//	args := flag.Args()
 
 	// By default, discard all log data during operation unless
 	// something goes wrong and needs to be reported.
@@ -65,32 +67,28 @@ func main() {
 		if err := genBinDeps(CLI.Bindeps.Args[0], CLI.Bindeps.Args[1:]); err != nil {
 			log.Fatalf("can't generate deps %v", err)
 		}
-	}
-
-/*
-	} else if *genbindeps != "" {
-	} else if *linuxpkg {
+	case "linuxpkg <packages>":
 		log.Println("CheckLinuxPackagesInstalled")
-		if err := CheckLinuxPackagesInstalled(args); err != nil {
+		if err := CheckLinuxPackagesInstalled(CLI.Linuxpkg.Packages); err != nil {
 			log.Fatalf("can't determine missing packages: %v\n", err)
 		}
-	} else if *bootstrap {
+	case "bootstrap <targetpath> <scriptspath>":
 		log.Println("BootstrapGcpNode")
-		if err := BootstrapGcpNode(*targetpath, *scriptspath); err != nil {
+		if err := BootstrapGcpNode(CLI.Bootstrap.Targetpath, CLI.Bootstrap.Scriptspath); err != nil {
 			log.Fatalf("can't bootstrap node: %v\n", err)
 		}
-	} else if *accountsetup {
+	case "accountsetup <targetpath> <scriptspath>":
 		log.Println("SetupGcpAccount")
-		if err := SetupGcpAccount(*targetpath, *scriptspath); err != nil {
+		if err := SetupGcpAccount(CLI.Accountsetup.Targetpath, CLI.Accountsetup.Scriptspath); err != nil {
 			log.Fatalf("can't bootstrap node: %v\n", err)
 		}
 		// TODO(rjk): This feature would become obsolete once I switch to new setup/build scheme.
-	} else {
-		if err := InstallBinTargets(*targetpath, args); err != nil {
+		// Isn't this now?
+	case "installbintargets <targetpath> <scriptspath>":
+		if err := InstallBinTargets(CLI.Installbintargets.Targetpath, CLI.Installbintargets.Args); err != nil {
 			log.SetOutput(os.Stderr)
 			log.Fatalf("can't install targets: %v", err)
 		}
 	}
-*/
 	os.Exit(0)
 }
