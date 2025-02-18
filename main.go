@@ -37,11 +37,6 @@ var CLI struct {
 		Targetpath string `arg:"" name:"targetpath" help:"install binaries here"`
 		Scriptspath string `arg:"" name:"scriptspath" help:"pull configuration to this dir"`
 	} `cmd help:"setup an account on an GCP node"`
-
-	Install struct {
-		Targetpath string `arg:"" name:"targetpath" help:"install binaries here"`
-		Args []string `arg:"" name:"args" help:"Binaries to install."`
-	} `cmd help:"Install binaries"`
 }
 
 
@@ -82,15 +77,8 @@ func main() {
 		if err := SetupGcpAccount(CLI.Accountsetup.Targetpath, CLI.Accountsetup.Scriptspath); err != nil {
 			log.Fatalf("can't bootstrap node: %v\n", err)
 		}
-		// TODO(rjk): This feature would become obsolete once I switch to new setup/build scheme.
-		// Isn't this now?
-	case "install <targetpath> <scriptspath>":
-		// I feel that this feature is no longer in use.
-		log.Println("installing...")
-		if err := InstallBinTargets(CLI.Install.Targetpath, CLI.Install.Args); err != nil {
-			log.SetOutput(os.Stderr)
-			log.Fatalf("can't install targets: %v", err)
-		}
+// TODO(rjk): This feature is obsolete once I switch to new setup/build
+// scheme. But: hasn't that happened?
 	}
 	os.Exit(0)
 }
