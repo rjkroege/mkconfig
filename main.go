@@ -27,16 +27,6 @@ var CLI struct {
 	Linuxpkg struct {
 		Packages []string `arg:"" name:"packages" help:"List of packages to generate names for."`
 	} `cmd help:"Produces a pkgnotes list for the missing system packages."`
-	
-	Bootstrap struct {
-		Targetpath string `arg:"" name:"targetpath" help:"install binaries here"`
-		Scriptspath string `arg:"" name:"scriptspath" help:"pull configuration to this dir"`
-	} `cmd help:"do GCP bootstrap"`
-
-	Accountsetup struct {
-		Targetpath string `arg:"" name:"targetpath" help:"install binaries here"`
-		Scriptspath string `arg:"" name:"scriptspath" help:"pull configuration to this dir"`
-	} `cmd help:"setup an account on an GCP node"`
 }
 
 
