@@ -67,18 +67,6 @@ func main() {
 		if err := CheckLinuxPackagesInstalled(CLI.Linuxpkg.Packages); err != nil {
 			log.Fatalf("can't determine missing packages: %v\n", err)
 		}
-	case "bootstrap <targetpath> <scriptspath>":
-		log.Println("BootstrapGcpNode")
-		if err := BootstrapGcpNode(CLI.Bootstrap.Targetpath, CLI.Bootstrap.Scriptspath); err != nil {
-			log.Fatalf("can't bootstrap node: %v\n", err)
-		}
-	case "accountsetup <targetpath> <scriptspath>":
-		log.Println("SetupGcpAccount")
-		if err := SetupGcpAccount(CLI.Accountsetup.Targetpath, CLI.Accountsetup.Scriptspath); err != nil {
-			log.Fatalf("can't bootstrap node: %v\n", err)
-		}
-// TODO(rjk): This feature is obsolete once I switch to new setup/build
-// scheme. But: hasn't that happened?
 	}
 	os.Exit(0)
 }

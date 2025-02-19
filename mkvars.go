@@ -31,13 +31,6 @@ func linuxFlavour() (string, error) {
 	return "", fmt.Errorf("can't determine Linux packaging scheme")
 }
 
-func isCos() bool {
-	if le, err := linuxFlavour(); err == nil && le == "cos" {
-		return true
-	}
-	return false
-}
-
 // printMkVars implements one of the two modes of mkconfig: printing
 // mk variables
 func printMkVars() {
