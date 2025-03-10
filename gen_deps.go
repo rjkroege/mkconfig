@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func addGoDep(newbins, deproots []string, bin, binarchive string) []string {
+func addGoZigDep(newbins, deproots []string, bin, binarchive string) []string {
 	for _, goos := range []string{"linux", "darwin"} {
 		archs := []string{}
 		switch goos {
@@ -36,15 +36,6 @@ func addSwiftDep(newbins, deproots []string, bin, binarchive string) []string {
 		}
 		newbins = append(newbins, archivetarget)
 	}
-	return newbins
-}
-
-func addZigDep(newbins, deproots []string, bin, binarchive string) []string {
-	archivetarget := filepath.Join(binarchive, bin+".zigbuild")
-	for _, dr := range deproots {
-		fmt.Printf("%s: %s\n", archivetarget, dr)
-	}
-	newbins = append(newbins, archivetarget)
 	return newbins
 }
 
@@ -100,9 +91,9 @@ func genBinDeps(binarchive string, paths []string) error {
 		case isSwift(pkgroot):
 			newbins = addSwiftDep(newbins, deproots, bin, binarchive)
 		case isGo(pkgroot):
-			newbins = addGoDep(newbins, deproots, bin, binarchive)
+			newbins = addGoZigDep(newbins, deproots, bin, binarchive)
 		case isZig(pkgroot):
-			newbins = addZigDep(newbins, deproots, bin, binarchive)
+			newbins = addGoZigDep(newbins, deproots, bin, binarchive)
 		default:
 			return fmt.Errorf("binary %q does not use a supported language", pth)
 		}
